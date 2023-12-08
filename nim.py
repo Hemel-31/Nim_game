@@ -101,13 +101,13 @@ class NimAI():
         Return the Q-value for the state `state` and the action `action`.
         If no Q-value exists yet in `self.q`, return 0.
         """
-        raise NotImplementedError
+        return self.q.get((tuple(state), action), 0)
 
     def update_q_value(self, state, action, old_q, reward, future_rewards):
         """
         Update the Q-value for the state `state` and the action `action`
         given the previous Q-value `old_q`, a current reward `reward`,
-        and an estiamte of future rewards `future_rewards`.
+        and an estimate of future rewards `future_rewards`.
 
         Use the formula:
 
@@ -118,7 +118,8 @@ class NimAI():
         `alpha` is the learning rate, and `new value estimate`
         is the sum of the current reward and estimated future rewards.
         """
-        raise NotImplementedError
+        new_q = old_q + self.alpha * (reward + future_rewards - old_q)
+        self.q[(tuple(state), action)] = new_q
 
     def best_future_reward(self, state):
         """
@@ -130,7 +131,10 @@ class NimAI():
         Q-value in `self.q`. If there are no available actions in
         `state`, return 0.
         """
-        raise NotImplementedError
+        possible_actions = Nim.available_actions(state)
+        if not possible_actions:
+            return 0
+        return max(self.get_q_value(state, action) for action in possible_actions)
 
     def choose_action(self, state, epsilon=True):
         """
@@ -147,7 +151,12 @@ class NimAI():
         If multiple actions have the same Q-value, any of those
         options is an acceptable return value.
         """
-        raise NotImplementedError
+        possible_actions = Nim.available_actions(state)
+
+        if epsilon and random.random() < self.epsilon:
+            return random.choice(list(possible_actions))
+        else:
+            return max(possible_actions, key=lambda action: self.get_q_value(state, action))
 
 
 def train(n):
@@ -183,7 +192,7 @@ def train(n):
             game.move(action)
             new_state = game.piles.copy()
 
-            # When game is over, update Q values with rewards
+            # When the game is over, update Q values with rewards
             if game.winner is not None:
                 player.update(state, action, new_state, -1)
                 player.update(
@@ -194,7 +203,7 @@ def train(n):
                 )
                 break
 
-            # If game is continuing, no rewards yet
+            # If the game is continuing, no rewards yet
             elif last[game.player]["state"] is not None:
                 player.update(
                     last[game.player]["state"],
@@ -211,16 +220,16 @@ def train(n):
 
 def play(ai, human_player=None):
     """
-    Play human game against the AI.
+    Play a human game against the AI.
     `human_player` can be set to 0 or 1 to specify whether
-    human player moves first or second.
+    the human player moves first or second.
     """
 
     # If no player order set, choose human's order randomly
     if human_player is None:
         human_player = random.randint(0, 1)
 
-    # Create new game
+    # Create a new game
     game = Nim()
 
     # Game loop
@@ -237,7 +246,7 @@ def play(ai, human_player=None):
         available_actions = Nim.available_actions(game.piles)
         time.sleep(1)
 
-        # Let human make a move
+        # Let the human make a move
         if game.player == human_player:
             print("Your Turn")
             while True:
@@ -247,19 +256,27 @@ def play(ai, human_player=None):
                     break
                 print("Invalid move, try again.")
 
-        # Have AI make a move
+        # Have the AI make a move
         else:
             print("AI's Turn")
             pile, count = ai.choose_action(game.piles, epsilon=False)
             print(f"AI chose to take {count} from pile {pile}.")
 
-        # Make move
+        # Make a move
         game.move((pile, count))
 
-        # Check for winner
+        # Check for a winner
         if game.winner is not None:
             print()
             print("GAME OVER")
             winner = "Human" if game.winner == human_player else "AI"
             print(f"Winner is {winner}")
             return
+
+
+if __name__ == "__main__":
+    # Train the AI
+    trained_ai = train(10000)
+
+    # Play a game against the trained AI
+    play(trained_ai)
